@@ -130,36 +130,40 @@ fun pat_cnv_of_thm th : (term * (term list->annot_conv)) =
     val lconsts = HOLset.fromList compare (free_varsl (hyp th))
     val t = concl th
     val (f,args) = strip_comb t
-    val (n,_) = dest_const f
   in
-    case (n,args) of
-    ("=",[l,r]) =>
-        let val matches = C (can o match_terml [] lconsts) in
-        if free_in l r orelse (matches l r andalso matches r l)
-        then (t,C REWR_ANNOTCONV (MAP_FORALL_BODY EQT_INTRO th))
-        else (l,C REWR_ANNOTCONV th)
-        end
-    |("==>",[p,c]) =>
-        let fun imprewr_concl f = C IMPREWR_CONV (GEN_MAP_CONCLUSION f th) in
-        if is_eq c
-         then
-           let
-             val (l,r) = dest_eq c
-             val matches = C (can o match_terml [] lconsts)
-           in
-             if free_in l r orelse (matches l r andalso matches r l) orelse is_var l
-             then 
-               if matches p c
-               then (c, C REWR_ANNOTCONV (EQT_INTRO th))
-               else (c, imprewr_concl EQT_INTRO)
-             else (l, C IMPREWR_CONV th)
-           end
-          else if is_neg c then (dest_neg c,imprewr_concl EQF_INTRO)
-          else (c, imprewr_concl EQT_INTRO)
-        end
-    |("~",[l]) => (l, C REWR_ANNOTCONV (EQF_INTRO th))
-    |("T",[]) => failwith "pat_cnv_of_thm"
-    |_ => (t, C REWR_ANNOTCONV (EQT_INTRO th))
+    if not (is_const f)
+    then (t, C REWR_ANNOTCONV (EQT_INTRO th))
+    else 
+      (let val (n,_) = dest_const f in
+      case (n,args) of
+      ("=",[l,r]) =>
+          let val matches = C (can o match_terml [] lconsts) in
+          if free_in l r orelse (matches l r andalso matches r l)
+          then (t,C REWR_ANNOTCONV (MAP_FORALL_BODY EQT_INTRO th))
+          else (l,C REWR_ANNOTCONV th)
+          end
+      |("==>",[p,c]) =>
+          let fun imprwr_conc f = C IMPREWR_CONV (GEN_MAP_CONCLUSION f th) in
+          if is_eq c
+           then
+             let
+               val (l,r) = dest_eq c
+               val matches = C (can o match_terml [] lconsts)
+             in
+               if free_in l r orelse (matches l r andalso matches r l) orelse is_var l
+               then 
+                 if matches p c
+                 then (c, C REWR_ANNOTCONV (EQT_INTRO th))
+                 else (c, imprwr_conc EQT_INTRO)
+               else (l, C IMPREWR_CONV th)
+             end
+            else if is_neg c then (dest_neg c,imprwr_conc EQF_INTRO)
+            else (c, imprwr_conc EQT_INTRO)
+          end
+      |("~",[l]) => (l, C REWR_ANNOTCONV (EQF_INTRO th))
+      |("T",[]) => failwith "pat_cnv_of_thm"
+      |_ => (t, C REWR_ANNOTCONV (EQT_INTRO th))
+    end)
   end;
 
 fun impconv_net_of_thm th =
